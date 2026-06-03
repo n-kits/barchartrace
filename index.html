@@ -177,14 +177,27 @@
         // Загрузка данных по URL
         async function loadData() {
             try {
-                // ПУТЬ К ФАЙЛУ CSV (лежит в той же папке, что и index.html)
                 const response = await fetch('data.csv');
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const csvText = await response.text();
-
+                
                 parseCSV(csvText);
                 buildYearFilters();
-                applyFilter('all'); // По умолчанию показываем "За всё время"
+                
+                // --- АВТОМАТИЧЕСКИЙ ВЫБОР ТЕКУЩЕГО ГОДА ---
+                // Узнаем реальный текущий год (например, "2026")
+                const currentYear = new Date().getFullYear().toString();
+                
+                // Проверяем, есть ли такой год в нашем CSV
+                if (availableYears.includes(currentYear)) {
+                    applyFilter(currentYear); // Включаем текущий год
+                } else if (availableYears.length > 0) {
+                    // Если текущего года в базе еще/уже нет, включаем самый свежий из доступных
+                    applyFilter(availableYears[availableYears.length - 1]);
+                } else {
+                    // Страховка
+                    applyFilter('all'); 
+                }
 
             } catch (error) {
                 console.error("Ошибка загрузки CSV:", error);
