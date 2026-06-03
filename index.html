@@ -261,17 +261,26 @@
             // Нарезка данных
             if (year === 'all') {
                 dates = [...rawDates];
-                candidates = rawCandidates.map(c => ({ ...c, values: [...c.allValues] }));
+                candidates = rawCandidates.map(c => ({...c, values: [...c.allValues]}));
             } else {
                 // Находим индексы начала и конца года
                 const startIndex = rawDates.findIndex(d => d.endsWith(year));
                 const endIndex = rawDates.findLastIndex(d => d.endsWith(year));
-
+                
                 dates = rawDates.slice(startIndex, endIndex + 1);
-                candidates = rawCandidates.map(c => ({
-                    ...c,
-                    values: c.allValues.slice(startIndex, endIndex + 1)
-                }));
+                
+                // Пересчитываем значения, чтобы каждый год начинался с нуля
+                candidates = rawCandidates.map(c => {
+                    // Базовое значение — это результат за день ДО начала выбранного года.
+                    // Если это самый первый год в файле (startIndex === 0), то база = 0.
+                    const baseline = startIndex > 0 ? c.allValues[startIndex - 1] : 0;
+                    
+                    return {
+                        ...c, 
+                        // Берем нужный кусок года и вычитаем из него накопленную базу
+                        values: c.allValues.slice(startIndex, endIndex + 1).map(v => Math.max(0, v - baseline))
+                    };
+                });
             }
 
             // Полная перерисовка
