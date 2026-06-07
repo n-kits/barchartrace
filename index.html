@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Рейтинг Картографов</title>
+    <!-- Подключение Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .bar-row {
@@ -12,61 +12,51 @@
             transition: transform 0.8s cubic-bezier(0.33, 1, 0.68, 1), opacity 0.4s ease;
             will-change: transform, opacity;
         }
-
+        /* Стили ползунка */
         input[type="range"] {
-            -webkit-appearance: none;
-            appearance: none;
-            background: transparent;
-            cursor: pointer;
-            width: 100%;
+            -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; width: 100%;
         }
-
-        input[type="range"]::-webkit-slider-runnable-track {
-            background: #1e293b;
-            height: 6px;
-            border-radius: 3px;
-        }
-
+        input[type="range"]::-webkit-slider-runnable-track { background: #1e293b; height: 6px; border-radius: 3px; }
         input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            margin-top: -5px;
-            background-color: #94a3b8;
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            transition: background-color 0.15s ease-in-out;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            -webkit-appearance: none; appearance: none; margin-top: -5px; background-color: #94a3b8;
+            height: 16px; width: 16px; border-radius: 50%; transition: background-color 0.15s ease-in-out; box-shadow: 0 0 5px rgba(0,0,0,0.5);
         }
+        input[type="range"]::-webkit-slider-thumb:hover { background-color: #cbd5e1; }
 
-        input[type="range"]::-webkit-slider-thumb:hover {
-            background-color: #cbd5e1;
+        /* Анимация импульса медалей при смене месяца (Тач-эффект) */
+        @keyframes medalPop {
+            0% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(251, 191, 36, 0)); }
+            35% { transform: scale(1.35); filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.7)); }
+            100% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(251, 191, 36, 0)); }
+        }
+        .animate-pop {
+            animation: medalPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
     </style>
 </head>
-
 <body class="bg-[#060B14] text-slate-100 h-screen overflow-hidden flex flex-col font-sans select-none antialiased">
 
+    <!-- Основной контейнер занимает всю высоту -->
     <main class="w-full max-w-[1600px] mx-auto p-4 md:p-6 flex flex-col h-full">
-
-        <!-- Заголовок и фильтры по годам -->
+        
+        <!-- Заголовок -->
         <header class="mb-4 flex-shrink-0 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-                <h1
-                    class="text-2xl md:text-3xl font-black tracking-tight text-white bg-clip-text bg-gradient-to-r from-slate-100 to-slate-300 text-transparent">
+                <h1 class="text-2xl md:text-3xl font-black tracking-tight text-white bg-clip-text bg-gradient-to-r from-slate-100 to-slate-300 text-transparent">
                     Гонка Картографов
                 </h1>
                 <p id="date-range" class="text-slate-500 text-xs md:text-sm mt-1">Загрузка данных...</p>
             </div>
-            <!-- Сюда динамически добавятся кнопки годов -->
+            <!-- Динамические кнопки годов -->
             <div id="year-filters" class="flex flex-wrap gap-2 text-sm font-semibold"></div>
         </header>
 
+        <!-- Область графика -->
         <div class="relative bg-[#0C1424] rounded-xl p-4 md:p-6 flex-1 flex flex-col overflow-hidden shadow-2xl">
-            <div
-                class="absolute bottom-8 right-12 md:right-16 flex flex-col items-end z-0 select-none pointer-events-none opacity-20 whitespace-nowrap">
-                <div id="watermark-date"
-                    class="text-6xl md:text-8xl font-black text-slate-500 font-mono tracking-tighter leading-none">
+            
+            <!-- Водяной знак -->
+            <div class="absolute bottom-8 right-12 md:right-16 flex flex-col items-end z-0 select-none pointer-events-none opacity-20 whitespace-nowrap">
+                <div id="watermark-date" class="text-6xl md:text-8xl font-black text-slate-500 font-mono tracking-tighter leading-none">
                     --.--.----
                 </div>
                 <div class="text-4xl md:text-5xl font-bold text-slate-500 font-mono mt-2 pr-2">
@@ -74,40 +64,29 @@
                 </div>
             </div>
 
+            <!-- Контейнер для строк рейтинга -->
             <div id="chart-container" class="relative w-full h-full z-10 mt-2">
-                <div id="grid-lines"
-                    class="absolute left-[160px] md:left-[220px] right-[70px] top-0 bottom-0 pointer-events-none select-none z-0">
-                </div>
+                <div id="grid-lines" class="absolute left-[160px] md:left-[220px] right-[70px] top-0 bottom-0 pointer-events-none select-none z-0"></div>
             </div>
         </div>
 
+        <!-- Панель управления -->
         <footer class="mt-4 flex-shrink-0 bg-[#0C1424] rounded-xl p-3 flex flex-col gap-3 shadow-xl">
             <div class="flex items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
-                    <button id="btn-play"
-                        class="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition duration-150 shadow-md">
-                        <svg id="icon-play" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z" />
-                        </svg>
-                        <svg id="icon-pause" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                        </svg>
+                    <button id="btn-play" class="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition duration-150 shadow-md">
+                        <svg id="icon-play" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        <svg id="icon-pause" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
                     </button>
-                    <button id="btn-reset"
-                        class="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-slate-200 transition duration-150">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
-                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                            <path d="M3 3v5h5" />
-                        </svg>
+                    <button id="btn-reset" class="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-slate-200 transition duration-150">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                     </button>
 
                     <div class="flex items-center bg-[#060B14] rounded-lg p-1 border border-slate-800/50 ml-2">
                         <span class="text-[10px] uppercase font-bold text-slate-500 px-2 tracking-wider">Скорость</span>
                         <div class="flex text-xs font-semibold">
                             <button class="speed-btn px-2 py-1 rounded" data-speed="0.5">0.5x</button>
-                            <button class="speed-btn px-2 py-1 rounded bg-slate-700 text-white shadow"
-                                data-speed="1">1x</button>
+                            <button class="speed-btn px-2 py-1 rounded bg-slate-700 text-white shadow" data-speed="1">1x</button>
                             <button class="speed-btn px-2 py-1 rounded" data-speed="2.5">2.5x</button>
                             <button class="speed-btn px-2 py-1 rounded" data-speed="5">5x</button>
                             <button class="speed-btn px-2 py-1 rounded" data-speed="10">10x</button>
@@ -116,28 +95,26 @@
                 </div>
 
                 <div class="text-right whitespace-nowrap">
-                    <div id="current-date" class="text-base font-bold font-mono text-slate-200 leading-tight">--.--.----
-                    </div>
-                    <div id="day-counter" class="text-[10px] text-slate-500 font-mono uppercase tracking-widest">День 0
-                        / 0</div>
+                    <div id="current-date" class="text-base font-bold font-mono text-slate-200 leading-tight">--.--.----</div>
+                    <div id="day-counter" class="text-[10px] text-slate-500 font-mono uppercase tracking-widest">День 0 / 0</div>
                 </div>
             </div>
 
+            <!-- Таймлайн -->
             <div class="relative w-full pt-1 pb-4">
-                <input id="timeline-slider" type="range" min="0" max="1" step="0.01" value="0" class="relative z-10"
-                    disabled>
+                <input id="timeline-slider" type="range" min="0" max="1" step="0.01" value="0" class="relative z-10" disabled>
                 <div id="timeline-labels" class="absolute top-6 left-0 right-0 w-full h-4 pointer-events-none"></div>
             </div>
         </footer>
     </main>
 
     <script>
-        const rowHeight = 52;
+        const rowHeight = 52; 
         const gap = 10;
-        const TOP_LIMIT = 10; // Показывать только топ-10 человек
+        const TOP_LIMIT = 10; 
 
         const chartContainer = document.getElementById('chart-container');
-        let gridLinesContainer = document.getElementById('grid-lines');
+        const gridLinesContainer = document.getElementById('grid-lines');
         const btnPlay = document.getElementById('btn-play');
         const iconPlay = document.getElementById('icon-play');
         const iconPause = document.getElementById('icon-pause');
@@ -152,8 +129,8 @@
         const yearFiltersContainer = document.getElementById('year-filters');
 
         let isPlaying = false;
-        let currentStep = 0;
-        let speedFactor = 1;
+        let currentStep = 0; 
+        let speedFactor = 1; 
         let lastTimestamp = null;
         let sliderIsActive = false;
 
@@ -170,8 +147,25 @@
         let dates = [];
         let candidates = [];
 
+        // Геймификация: Заранее рассчитанные победители по месяцам
+        let activeMonthlyWinners = [];
+        let lastCompletedCount = 0; // Для отслеживания момента зачисления новой медали
+
         function getInitials(name) {
             return name.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('');
+        }
+
+        // Проверка: является ли дата концом месяца
+        function isMonthEnd(dateStr, nextDateStr) {
+            if (!nextDateStr) {
+                // Если это последний день в базе — проверяем, является ли он концом этого месяца
+                const [d, m, y] = dateStr.split('.').map(Number);
+                const lastDay = new Date(y, m, 0).getDate(); 
+                return d === lastDay;
+            }
+            const currentParts = dateStr.split('.');
+            const nextParts = nextDateStr.split('.');
+            return currentParts[1] !== nextParts[1] || currentParts[2] !== nextParts[2];
         }
 
         // Загрузка данных по URL
@@ -184,19 +178,14 @@
                 parseCSV(csvText);
                 buildYearFilters();
                 
-                // --- АВТОМАТИЧЕСКИЙ ВЫБОР ТЕКУЩЕГО ГОДА ---
-                // Узнаем реальный текущий год (например, "2026")
+                // Автовыбор текущего года
                 const currentYear = new Date().getFullYear().toString();
-                
-                // Проверяем, есть ли такой год в нашем CSV
                 if (availableYears.includes(currentYear)) {
-                    applyFilter(currentYear); // Включаем текущий год
+                    applyFilter(currentYear);
                 } else if (availableYears.length > 0) {
-                    // Если текущего года в базе еще/уже нет, включаем самый свежий из доступных
                     applyFilter(availableYears[availableYears.length - 1]);
                 } else {
-                    // Страховка
-                    applyFilter('all'); 
+                    applyFilter('all');
                 }
 
             } catch (error) {
@@ -209,39 +198,35 @@
             if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
             const lines = text.trim().split('\n').map(l => l.split(','));
             const headers = lines[0];
-
+            
             rawDates = headers.slice(3).map(d => d.trim());
             rawCandidates = [];
-
-            // Находим все уникальные года из формата DD.MM.YYYY
+            
             const yearsSet = new Set(rawDates.map(d => d.split('.')[2]));
             availableYears = Array.from(yearsSet).sort();
 
             for (let i = 1; i < lines.length; i++) {
                 const cols = lines[i];
                 if (cols.length < 4) continue;
-                rawCandidates.push({
-                    name: cols[0].trim(),
-                    avatar: cols[1].trim(),
-                    dept: cols[2].trim(),
-                    allValues: cols.slice(3).map(v => parseFloat(v) || 0) // Сохраняем все значения
+                rawCandidates.push({ 
+                    name: cols[0].trim(), 
+                    avatar: cols[1].trim(), 
+                    dept: cols[2].trim(), 
+                    allValues: cols.slice(3).map(v => parseFloat(v) || 0)
                 });
             }
         }
 
-        // --- ЛОГИКА ФИЛЬТРАЦИИ ПО ГОДАМ ---
         function buildYearFilters() {
             yearFiltersContainer.innerHTML = '';
-
-            // Кнопка "За всё время"
+            
             const btnAll = document.createElement('button');
             btnAll.textContent = "За всё время";
-            btnAll.className = "filter-btn px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 transition shadow";
+            btnAll.className = "filter-btn px-3 py-1.5 rounded bg-slate-800/80 hover:bg-slate-700 transition shadow";
             btnAll.dataset.year = "all";
             btnAll.onclick = () => applyFilter('all');
             yearFiltersContainer.appendChild(btnAll);
 
-            // Кнопки по годам (показываем только если годов больше одного)
             if (availableYears.length > 1) {
                 availableYears.forEach(year => {
                     const btn = document.createElement('button');
@@ -255,12 +240,11 @@
         }
 
         function applyFilter(year) {
-            // Остановка анимации
             isPlaying = false;
             updatePlayPauseState();
             currentStep = 0;
+            lastCompletedCount = 0; // Сброс анимаций
 
-            // Обновление UI кнопок
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 if (btn.dataset.year === year) {
                     btn.classList.replace('bg-slate-800/80', 'bg-slate-700');
@@ -271,32 +255,46 @@
                 }
             });
 
-            // Нарезка данных
             if (year === 'all') {
                 dates = [...rawDates];
                 candidates = rawCandidates.map(c => ({...c, values: [...c.allValues]}));
             } else {
-                // Находим индексы начала и конца года
                 const startIndex = rawDates.findIndex(d => d.endsWith(year));
                 const endIndex = rawDates.findLastIndex(d => d.endsWith(year));
                 
                 dates = rawDates.slice(startIndex, endIndex + 1);
-                
-                // Пересчитываем значения, чтобы каждый год начинался с нуля
                 candidates = rawCandidates.map(c => {
-                    // Базовое значение — это результат за день ДО начала выбранного года.
-                    // Если это самый первый год в файле (startIndex === 0), то база = 0.
                     const baseline = startIndex > 0 ? c.allValues[startIndex - 1] : 0;
-                    
                     return {
                         ...c, 
-                        // Берем нужный кусок года и вычитаем из него накопленную базу
                         values: c.allValues.slice(startIndex, endIndex + 1).map(v => Math.max(0, v - baseline))
                     };
                 });
             }
 
-            // Полная перерисовка
+            // --- АРХИТЕКТУРА: PRE-CALCULATION МЕДАЛЕЙ ---
+            activeMonthlyWinners = [];
+            for (let i = 0; i < dates.length; i++) {
+                if (isMonthEnd(dates[i], dates[i + 1])) {
+                    // Рассчитываем рейтинг строго на день закрытия месяца
+                    const standings = candidates.map((c, index) => ({
+                        index,
+                        val: c.values[i],
+                        name: c.name
+                    }));
+                    standings.sort((a, b) => b.val !== a.val ? b.val - a.val : a.name.localeCompare(b.name));
+                    
+                    activeMonthlyWinners.push({
+                        index: i, // индекс дня закрытия
+                        monthYear: dates[i].split('.').slice(1).join('.'),
+                        // Зачисляем медали только тем, у кого больше 0 баллов
+                        gold: standings[0] && standings[0].val > 0 ? standings[0].index : -1,
+                        silver: standings[1] && standings[1].val > 0 ? standings[1].index : -1,
+                        bronze: standings[2] && standings[2].val > 0 ? standings[2].index : -1
+                    });
+                }
+            }
+
             initDOM();
             draw();
         }
@@ -311,23 +309,24 @@
             textDateRange.textContent = `Динамика результатов с ${dates[0]} по ${dates[dates.length - 1]}`;
             slider.disabled = false;
             slider.max = dates.length - 1;
-
+            
             candidates.forEach((c, index) => {
                 const initials = getInitials(c.name);
                 const row = document.createElement('div');
-
+                
                 row.className = `bar-row absolute left-0 right-0 flex items-center z-10`;
                 row.style.height = `${rowHeight}px`;
-                // Изначально прячем все за экраном (для плавного выезда)
-                row.style.transform = `translateY(1500px)`;
+                row.style.transform = `translateY(1500px)`; 
                 row.style.opacity = '0';
 
                 row.innerHTML = `
                     <div class="rank-display w-6 text-right font-mono font-black pr-2 select-none text-sm md:text-base"></div>
                     <div class="w-32 md:w-48 flex-shrink-0 flex flex-col justify-center pr-3 select-none">
                         <div class="name-label font-bold text-xs md:text-sm truncate transition-colors duration-300 text-white">${c.name}</div>
-                        <div class="mt-0.5">
+                        <div class="mt-0.5 flex items-center gap-1.5 overflow-visible">
                             <span class="text-[9px] uppercase tracking-wider bg-[#0C1424] px-1.5 py-0.5 rounded text-slate-400 font-semibold border border-slate-700/50">${c.dept}</span>
+                            <!-- Контейнер для медалей с тактильным hover-эффектом -->
+                            <div class="medals-container flex items-center gap-1.5 text-[11px] font-bold text-slate-300 overflow-visible hover:scale-110 transition duration-150"></div>
                         </div>
                     </div>
                     <div class="flex-1 relative h-10 bg-slate-800/30 rounded-md flex items-center mr-16">
@@ -348,23 +347,23 @@
                     rankDisplay: row.querySelector('.rank-display'),
                     valueLabel: row.querySelector('.value-label'),
                     nameLabel: row.querySelector('.name-label'),
+                    medalsContainer: row.querySelector('.medals-container'), // Кэш медалей
                     lastRank: -1,
-                    currentValue: 0
+                    currentValue: 0 
                 });
             });
 
-            // Таймлайн метки
             const timelineLabels = document.getElementById('timeline-labels');
             let labelsHTML = '';
             const step = Math.ceil(dates.length / 8);
-            for (let i = 0; i < dates.length; i += step) {
+            for(let i = 0; i < dates.length; i += step) {
                 const percentage = (i / (dates.length - 1)) * 100;
-                if (percentage > 2 && percentage < 98) {
+                if(percentage > 2 && percentage < 98) {
                     labelsHTML += `<span style="left: ${percentage}%; transform: translateX(-50%)" class="absolute text-[10px] text-slate-500 font-mono">${dates[i]}</span>`;
                 }
             }
             labelsHTML += `<span style="left: 0%;" class="absolute text-[10px] text-slate-500 font-mono">${dates[0]}</span>`;
-            labelsHTML += `<span style="left: 100%; transform: translateX(-100%)" class="absolute text-[10px] text-slate-500 font-mono">${dates[dates.length - 1]}</span>`;
+            labelsHTML += `<span style="left: 100%; transform: translateX(-100%)" class="absolute text-[10px] text-slate-500 font-mono">${dates[dates.length-1]}</span>`;
             timelineLabels.innerHTML = labelsHTML;
         }
 
@@ -377,7 +376,7 @@
             if (norm < 1.5) step = 1; else if (norm < 3) step = 2; else if (norm < 7) step = 5; else step = 10;
             step *= mag;
             const ticks = [];
-            const start = Math.floor(step / step) * step;
+            const start = Math.floor(step / step) * step; 
             for (let i = start; i <= maxVal; i += step) ticks.push(i);
             return ticks;
         }
@@ -393,7 +392,7 @@
             gridCache.forEach((el, val) => {
                 const percentage = (val / maxVal) * 100;
                 el.style.left = `${percentage}%`;
-
+                
                 if (isScaleChanged && !activeVals.has(val)) {
                     el.style.opacity = '0';
                 }
@@ -403,7 +402,6 @@
                 }
             });
 
-            // Нулевая линия (всегда есть)
             if (!gridCache.has(0)) {
                 const zeroEl = document.createElement('div');
                 zeroEl.className = 'absolute top-0 bottom-0 border-r border-slate-700/30';
@@ -466,19 +464,30 @@
             }
         }
 
+        // Запуск импульсной анимации на медали у победителей
+        function triggerMedalPop(candidateIndex) {
+            if (candidateIndex === -1) return;
+            const els = domCache[candidateIndex];
+            if (els && els.medalsContainer) {
+                els.medalsContainer.classList.remove('animate-pop');
+                void els.medalsContainer.offsetWidth; // Триггер сброса анимации
+                els.medalsContainer.classList.add('animate-pop');
+            }
+        }
+
         function draw() {
             if (!dates.length) return;
             const step = currentStep;
-            const idx1 = Math.floor(step);
-            const idx2 = Math.min(idx1 + 1, dates.length - 1);
-            const t = step - idx1;
+            const idx = Math.floor(step);
+            const idx2 = Math.min(idx + 1, dates.length - 1);
+            const t = step - idx;
 
-            textCurrentDate.textContent = dates[idx1];
-            textWatermarkDate.textContent = dates[idx1];
-            textDayCounter.textContent = `День ${idx1 + 1} / ${dates.length}`;
+            textCurrentDate.textContent = dates[idx];
+            textWatermarkDate.textContent = dates[idx];
+            textDayCounter.textContent = `День ${idx + 1} / ${dates.length}`;
 
-            for (let i = 0; i < candidates.length; i++) {
-                const val1 = candidates[i].values[idx1];
+            for(let i = 0; i < candidates.length; i++) {
+                const val1 = candidates[i].values[idx];
                 const val2 = candidates[i].values[idx2];
                 domCache[i].currentValue = val1 + (val2 - val1) * t;
             }
@@ -498,35 +507,68 @@
             });
 
             const ranks = new Array(candidates.length);
-            for (let i = 0; i < indices.length; i++) ranks[indices[i]] = i;
+            for(let i = 0; i < indices.length; i++) ranks[indices[i]] = i;
 
-            const maxBarWidth = 100;
+            // --- РАСЧЕТ И ОТОБРАЖЕНИЕ МЕДАЛЕЙ ---
+            const medalCounts = candidates.map(() => ({ gold: 0, silver: 0, bronze: 0 }));
+            let completedMonthsCount = 0;
 
-            for (let i = 0; i < candidates.length; i++) {
+            for (const item of activeMonthlyWinners) {
+                if (item.index <= idx) {
+                    completedMonthsCount++;
+                    if (item.gold !== -1) medalCounts[item.gold].gold++;
+                    if (item.silver !== -1) medalCounts[item.silver].silver++;
+                    if (item.bronze !== -1) medalCounts[item.bronze].bronze++;
+                }
+            }
+
+            // Тач-эффект: триггер анимации при переходе через границу месяца
+            if (completedMonthsCount !== lastCompletedCount) {
+                // Анимируем только при авто-воспроизведении (чтобы не спамить при ручной прокрутке)
+                if (isPlaying && completedMonthsCount > lastCompletedCount) {
+                    const latestMonth = activeMonthlyWinners[completedMonthsCount - 1];
+                    if (latestMonth) {
+                        triggerMedalPop(latestMonth.gold);
+                        triggerMedalPop(latestMonth.silver);
+                        triggerMedalPop(latestMonth.bronze);
+                    }
+                }
+                lastCompletedCount = completedMonthsCount;
+            }
+
+            const maxBarWidth = 100; 
+
+            for(let i = 0; i < candidates.length; i++) {
                 const rank = ranks[i];
                 const els = domCache[i];
-
-                // --- ЛОГИКА ТОП-10 ---
+                
+                // Логика ТОП-10
                 if (rank < TOP_LIMIT) {
-                    // Человек в ТОП-10: показываем его
                     els.rowEl.style.transform = `translateY(${rank * (rowHeight + gap)}px)`;
                     els.rowEl.style.opacity = '1';
                 } else {
-                    // Человек вне ТОП-10: прячем вниз за экран
                     els.rowEl.style.transform = `translateY(1500px)`;
                     els.rowEl.style.opacity = '0';
                 }
 
-                // Продолжаем обновлять его значения, даже если он скрыт
                 const val = els.currentValue;
                 const percentage = (val / maxVal) * maxBarWidth;
 
                 els.valueLabel.textContent = Math.round(val);
                 els.rankDisplay.textContent = rank + 1;
-
+                
                 els.barFill.style.width = `${percentage}%`;
                 els.valueLabel.style.left = `calc(${percentage}% + 10px)`;
                 els.avatarContainer.style.left = `calc(max(0px, ${percentage}% - 40px))`;
+
+                // Рендер медалей (выводим только те, что > 0, без x0)
+                const count = medalCounts[i];
+                let medalsHTML = '';
+                if (count.gold > 0) medalsHTML += `<span class="flex items-center gap-0.5" title="Золотых медалей">🥇<span class="text-[10px] text-amber-400 font-mono">${count.gold}</span></span>`;
+                if (count.silver > 0) medalsHTML += `<span class="flex items-center gap-0.5" title="Серебряных медалей">🥈<span class="text-[10px] text-slate-300 font-mono">${count.silver}</span></span>`;
+                if (count.bronze > 0) medalsHTML += `<span class="flex items-center gap-0.5" title="Бронзовых медалей">🥉<span class="text-[10px] text-orange-400 font-mono">${count.bronze}</span></span>`;
+                
+                els.medalsContainer.innerHTML = medalsHTML;
 
                 if (els.lastRank !== rank) {
                     applyRankDesign(els, rank);
@@ -567,7 +609,7 @@
         }
 
         btnPlay.addEventListener('click', () => {
-            if (currentStep >= dates.length - 1) currentStep = 0;
+            if (currentStep >= dates.length - 1) currentStep = 0; 
             isPlaying = !isPlaying;
             updatePlayPauseState();
             if (isPlaying) requestAnimationFrame(animate);
@@ -576,6 +618,7 @@
         btnReset.addEventListener('click', () => {
             isPlaying = false;
             currentStep = 0;
+            lastCompletedCount = 0; // Сброс анимаций
             updatePlayPauseState();
             draw();
         });
@@ -587,7 +630,7 @@
             currentStep = parseFloat(slider.value);
             draw();
         });
-
+        
         slider.addEventListener('change', () => sliderIsActive = false);
 
         speedButtons.forEach(button => {
@@ -604,9 +647,7 @@
             if (e.code === 'ArrowRight') { currentStep = Math.min(dates.length - 1, currentStep + 1); slider.value = currentStep; draw(); }
         });
 
-        // Запуск
         loadData();
     </script>
 </body>
-
 </html>
