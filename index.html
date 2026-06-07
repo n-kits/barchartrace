@@ -114,7 +114,6 @@
         const TOP_LIMIT = 10; 
 
         const chartContainer = document.getElementById('chart-container');
-        const gridLinesContainer = document.getElementById('grid-lines');
         const btnPlay = document.getElementById('btn-play');
         const iconPlay = document.getElementById('icon-play');
         const iconPause = document.getElementById('icon-pause');
@@ -127,6 +126,9 @@
         const textDayCounter = document.getElementById('day-counter');
         const speedButtons = document.querySelectorAll('.speed-btn');
         const yearFiltersContainer = document.getElementById('year-filters');
+        
+        // ОПТИМИЗАЦИЯ: Изменено с const на let во избежание ошибки переопределения
+        let gridLinesContainer = document.getElementById('grid-lines'); 
 
         let isPlaying = false;
         let currentStep = 0; 
@@ -402,6 +404,7 @@
                 }
             });
 
+            // Нулевая линия (всегда есть)
             if (!gridCache.has(0)) {
                 const zeroEl = document.createElement('div');
                 zeroEl.className = 'absolute top-0 bottom-0 border-r border-slate-700/30';
