@@ -163,6 +163,19 @@
     </main>
 
     <script>
+        // =========================================================================
+        // НАСТРОЙКИ ОТОБРАЖЕНИЯ МЕДАЛЕЙ (Просто меняйте значения и сохраняйте файл!)
+        // =========================================================================
+        const MEDAL_CONFIG = {
+            emojiSize: "text-[11px]",   // Размер эмодзи (классы Tailwind: text-[11px], text-[13px], text-xs, text-sm)
+            digitSize: "text-[10px]",   // Размер шрифта цифры количества медалей
+            gapBetween: "gap-1.5",      // Расстояние между медалями разных видов (gap-1 = 4px, gap-1.5 = 6px, gap-2 = 8px)
+            gapInside: "gap-0.5",       // Расстояние между иконкой медали и ее цифрой (gap-0.5 = 2px, gap-1 = 4px)
+            useXFormat: true,          // Формат вывода: true -> "x3" / false -> "3"
+            order: "emoji-first"        // Порядок вывода: "emoji-first" -> 🥇3 / "digit-first" -> 3🥇
+        };
+        // =========================================================================
+
         const rowHeight = 52;
         const gap = 10;
         const TOP_LIMIT = 10;
@@ -326,15 +339,13 @@
                 });
             }
 
-            // --- ИСПРАВЛЕННАЯ ЛОГИКА: PRE-CALCULATION МЕДАЛЕЙ ЗА РЕЗУЛЬТАТЫ МЕСЯЦА ---
             activeMonthlyWinners = [];
-            let prevMonthEndIndex = -1; // Храним индекс конца предыдущего месяца
+            let prevMonthEndIndex = -1;
 
             for (let i = 0; i < dates.length; i++) {
                 if (isMonthEnd(dates[i], dates[i + 1])) {
 
                     const standings = candidates.map((c, index) => {
-                        // Рассчитываем ЧИСТЫЙ прирост внутри конкретного месяца
                         const startVal = prevMonthEndIndex !== -1 ? c.values[prevMonthEndIndex] : 0;
                         const endVal = c.values[i];
                         const monthProgress = Math.max(0, endVal - startVal);
@@ -346,19 +357,17 @@
                         };
                     });
 
-                    // Сортируем прирост по убыванию
                     standings.sort((a, b) => b.val !== a.val ? b.val - a.val : a.name.localeCompare(b.name));
 
                     activeMonthlyWinners.push({
                         index: i,
                         monthYear: dates[i].split('.').slice(1).join('.'),
-                        // Зачисляем медали только при приросте больше 0
                         gold: standings[0] && standings[0].val > 0 ? standings[0].index : -1,
                         silver: standings[1] && standings[1].val > 0 ? standings[1].index : -1,
                         bronze: standings[2] && standings[2].val > 0 ? standings[2].index : -1
                     });
 
-                    prevMonthEndIndex = i; // Текущий месяц закрыт, он становится базой для следующего
+                    prevMonthEndIndex = i;
                 }
             }
 
@@ -386,14 +395,14 @@
                 row.style.transform = `translateY(1500px)`;
                 row.style.opacity = '0';
 
+                // ИСПРАВЛЕНО: gap и размер шрифта у .medals-container теперь берутся из MEDAL_CONFIG
                 row.innerHTML = `
                     <div class="rank-display w-6 text-right font-mono font-black pr-2 select-none text-sm md:text-base"></div>
                     <div class="w-32 md:w-48 flex-shrink-0 flex flex-col justify-center pr-3 select-none">
                         <div class="name-label font-bold text-xs md:text-sm truncate transition-colors duration-300 text-white">${c.name}</div>
                         <div class="mt-0.5 flex items-center gap-1.5 overflow-visible">
                             <span class="text-[9px] uppercase tracking-wider bg-[#0C1424] px-1.5 py-0.5 rounded text-slate-400 font-semibold border border-slate-700/50">${c.dept}</span>
-                            <!-- Контейнер для медалей с тактильным hover-эффектом -->
-                            <div class="medals-container flex items-center gap-1.5 text-[11px] font-bold text-slate-300 overflow-visible hover:scale-110 transition duration-150"></div>
+                            <div class="medals-container flex items-center ${MEDAL_CONFIG.gapBetween} ${MEDAL_CONFIG.emojiSize} overflow-visible hover:scale-110 transition duration-150"></div>
                         </div>
                     </div>
                     <div class="flex-1 relative h-10 bg-slate-800/30 rounded-md flex items-center mr-16">
@@ -542,6 +551,21 @@
             }
         }
 
+        // Вспомогательная функция для генерации HTML-кода медали на основе MEDAL_CONFIG
+        function generateSingleMedalHTML(medalEmoji, value, title, colorClass) {
+            const formattedValue = MEDAL_CONFIG.useXFormat ? `x${value}` : value;
+
+            const emojiSpan = `<span>${medalEmoji}</span>`;
+            const digitSpan = `<span class="${MEDAL_CONFIG.digitSize} ${colorClass} font-mono">${formattedValue}</span>`;
+
+            // Настройка порядка: медаль сначала или число сначала
+            const content = MEDAL_CONFIG.order === "emoji-first"
+                ? emojiSpan + digitSpan
+                : digitSpan + emojiSpan;
+
+            return `<span class="flex items-center ${MEDAL_CONFIG.gapInside}" title="${title}">${content}</span>`;
+        }
+
         function draw() {
             if (!dates.length) return;
             const step = currentStep;
@@ -627,12 +651,12 @@
                 els.valueLabel.style.left = `calc(${percentage}% + 10px)`;
                 els.avatarContainer.style.left = `calc(max(0px, ${percentage}% - 40px))`;
 
-                // Рендер медалей (выводим только те, что > 0, без x0)
+                // ИСПРАВЛЕНО: Динамический рендер медалей на основе MEDAL_CONFIG
                 const count = medalCounts[i];
                 let medalsHTML = '';
-                if (count.gold > 0) medalsHTML += `<span class="flex items-center gap-0.5" title="Золотых медалей">🥇<span class="text-[10px] text-amber-400 font-mono">${count.gold}</span></span>`;
-                if (count.silver > 0) medalsHTML += `<span class="flex items-center gap-0.5" title="Серебряных медалей">🥈<span class="text-[10px] text-slate-300 font-mono">${count.silver}</span></span>`;
-                if (count.bronze > 0) medalsHTML += `<span class="flex items-center gap-0.5" title="Бронзовых медалей">🥉<span class="text-[10px] text-orange-400 font-mono">${count.bronze}</span></span>`;
+                if (count.gold > 0) medalsHTML += generateSingleMedalHTML('🥇', count.gold, 'Золотых медалей', 'text-amber-400');
+                if (count.silver > 0) medalsHTML += generateSingleMedalHTML('🥈', count.silver, 'Серебряных медалей', 'text-slate-300');
+                if (count.bronze > 0) medalsHTML += generateSingleMedalHTML('🥉', count.bronze, 'Бронзовых медалей', 'text-orange-400');
 
                 els.medalsContainer.innerHTML = medalsHTML;
 
