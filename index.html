@@ -641,7 +641,7 @@
                 const val = els.currentValue;
                 const percentage = (val / maxVal) * maxBarWidth;
 
-                els.valueLabel.textContent = Math.round(val);
+                els.valueLabel.textContent = Math.round(val).toLocaleString('ru-RU');
                 els.rankDisplay.textContent = rank + 1;
                 
                 els.barFill.style.width = `${percentage}%`;
