@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Рейтинг Картографов</title>
+    <!-- Подключение Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .bar-row {
@@ -12,80 +12,51 @@
             transition: transform 0.8s cubic-bezier(0.33, 1, 0.68, 1), opacity 0.4s ease;
             will-change: transform, opacity;
         }
-
+        /* Стили ползунка */
         input[type="range"] {
-            -webkit-appearance: none;
-            appearance: none;
-            background: transparent;
-            cursor: pointer;
-            width: 100%;
+            -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; width: 100%;
         }
-
-        input[type="range"]::-webkit-slider-runnable-track {
-            background: #1e293b;
-            height: 6px;
-            border-radius: 3px;
-        }
-
+        input[type="range"]::-webkit-slider-runnable-track { background: #1e293b; height: 6px; border-radius: 3px; }
         input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            margin-top: -5px;
-            background-color: #94a3b8;
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            transition: background-color 0.15s ease-in-out;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            -webkit-appearance: none; appearance: none; margin-top: -5px; background-color: #94a3b8;
+            height: 16px; width: 16px; border-radius: 50%; transition: background-color 0.15s ease-in-out; box-shadow: 0 0 5px rgba(0,0,0,0.5);
         }
+        input[type="range"]::-webkit-slider-thumb:hover { background-color: #cbd5e1; }
 
-        input[type="range"]::-webkit-slider-thumb:hover {
-            background-color: #cbd5e1;
-        }
-
+        /* Анимация импульса медалей при смене месяца (Тач-эффект) */
         @keyframes medalPop {
-            0% {
-                transform: scale(1);
-                filter: drop-shadow(0 0 0px rgba(251, 191, 36, 0));
-            }
-
-            35% {
-                transform: scale(1.35);
-                filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.7));
-            }
-
-            100% {
-                transform: scale(1);
-                filter: drop-shadow(0 0 0px rgba(251, 191, 36, 0));
-            }
+            0% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(251, 191, 36, 0)); }
+            35% { transform: scale(1.35); filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.7)); }
+            100% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(251, 191, 36, 0)); }
         }
-
         .animate-pop {
             animation: medalPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
     </style>
 </head>
-
 <body class="bg-[#060B14] text-slate-100 h-screen overflow-hidden flex flex-col font-sans select-none antialiased">
 
+    <!-- Основной контейнер занимает всю высоту -->
     <main class="w-full max-w-[1600px] mx-auto p-4 md:p-6 flex flex-col h-full">
-
+        
+        <!-- Заголовок -->
         <header class="mb-4 flex-shrink-0 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-                <h1
-                    class="text-2xl md:text-3xl font-black tracking-tight text-white bg-clip-text bg-gradient-to-r from-slate-100 to-slate-300 text-transparent">
+                <h1 class="text-2xl md:text-3xl font-black tracking-tight text-white bg-clip-text bg-gradient-to-r from-slate-100 to-slate-300 text-transparent">
                     Гонка Картографов
                 </h1>
                 <p id="date-range" class="text-slate-500 text-xs md:text-sm mt-1">Загрузка данных...</p>
             </div>
+            <!-- Сюда динамически добавятся кнопки годов -->
             <div id="year-filters" class="flex flex-wrap gap-2 text-sm font-semibold"></div>
         </header>
 
+        <!-- Область графика -->
         <div class="relative bg-[#0C1424] rounded-xl p-4 md:p-6 flex-1 flex flex-col overflow-hidden shadow-2xl">
-            <div
-                class="absolute bottom-8 right-12 md:right-16 flex flex-col items-end z-0 select-none pointer-events-none opacity-20 whitespace-nowrap">
-                <div id="watermark-date"
-                    class="text-6xl md:text-8xl font-black text-slate-500 font-mono tracking-tighter leading-none">
+            
+            <!-- Водяной знак -->
+            <div class="absolute bottom-8 right-12 md:right-16 flex flex-col items-end z-0 select-none pointer-events-none opacity-20 whitespace-nowrap">
+                <div id="watermark-date" class="text-6xl md:text-8xl font-black text-slate-500 font-mono tracking-tighter leading-none">
                     --.--.----
                 </div>
                 <div class="text-4xl md:text-5xl font-bold text-slate-500 font-mono mt-2 pr-2">
@@ -93,38 +64,29 @@
                 </div>
             </div>
 
+            <!-- Контейнер для строк рейтинга -->
             <div id="chart-container" class="relative w-full h-full z-10 mt-2">
-                <!-- Оставлен пустым, заполняется в initDOM() для соблюдения DRY -->
+                <div id="grid-lines" class="absolute left-[160px] md:left-[220px] right-[70px] top-0 bottom-0 pointer-events-none select-none z-0"></div>
             </div>
         </div>
 
+        <!-- Панель управления -->
         <footer class="mt-4 flex-shrink-0 bg-[#0C1424] rounded-xl p-3 flex flex-col gap-3 shadow-xl">
             <div class="flex items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
-                    <button id="btn-play"
-                        class="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition duration-150 shadow-md">
-                        <svg id="icon-play" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z" />
-                        </svg>
-                        <svg id="icon-pause" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                        </svg>
+                    <button id="btn-play" class="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition duration-150 shadow-md">
+                        <svg id="icon-play" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        <svg id="icon-pause" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
                     </button>
-                    <button id="btn-reset"
-                        class="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-slate-200 transition duration-150">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
-                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                            <path d="M3 3v5h5" />
-                        </svg>
+                    <button id="btn-reset" class="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-slate-200 transition duration-150">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                     </button>
 
                     <div class="flex items-center bg-[#060B14] rounded-lg p-1 border border-slate-800/50 ml-2">
                         <span class="text-[10px] uppercase font-bold text-slate-500 px-2 tracking-wider">Скорость</span>
                         <div class="flex text-xs font-semibold">
                             <button class="speed-btn px-2 py-1 rounded" data-speed="0.5">0.5x</button>
-                            <button class="speed-btn px-2 py-1 rounded bg-slate-700 text-white shadow"
-                                data-speed="1">1x</button>
+                            <button class="speed-btn px-2 py-1 rounded bg-slate-700 text-white shadow" data-speed="1">1x</button>
                             <button class="speed-btn px-2 py-1 rounded" data-speed="2.5">2.5x</button>
                             <button class="speed-btn px-2 py-1 rounded" data-speed="5">5x</button>
                             <button class="speed-btn px-2 py-1 rounded" data-speed="10">10x</button>
@@ -133,16 +95,14 @@
                 </div>
 
                 <div class="text-right whitespace-nowrap">
-                    <div id="current-date" class="text-base font-bold font-mono text-slate-200 leading-tight">--.--.----
-                    </div>
-                    <div id="day-counter" class="text-[10px] text-slate-500 font-mono uppercase tracking-widest">День 0
-                        / 0</div>
+                    <div id="current-date" class="text-base font-bold font-mono text-slate-200 leading-tight">--.--.----</div>
+                    <div id="day-counter" class="text-[10px] text-slate-500 font-mono uppercase tracking-widest">День 0 / 0</div>
                 </div>
             </div>
 
+            <!-- Таймлайн -->
             <div class="relative w-full pt-1 pb-4">
-                <input id="timeline-slider" type="range" min="0" max="1" step="any" value="0" class="relative z-10"
-                    disabled>
+                <input id="timeline-slider" type="range" min="0" max="1" step="any" value="0" class="relative z-10" disabled>
                 <div id="timeline-labels" class="absolute top-6 left-0 right-0 w-full h-4 pointer-events-none"></div>
             </div>
         </footer>
@@ -150,18 +110,18 @@
 
     <script>
         const MEDAL_CONFIG = {
-            emojiSize: "text-[11px]",
-            digitSize: "text-[10px]",
-            gapBetween: "gap-1.5",
-            gapInside: "gap-0.5",
-            useXFormat: true,
-            order: "emoji-first"
+            emojiSize: "text-[11px]",   
+            digitSize: "text-[10px]",   
+            gapBetween: "gap-1.5",      
+            gapInside: "gap-0.5",       
+            useXFormat: false,          
+            order: "emoji-first"        
         };
 
         const GRID_CLASSES = "absolute left-[160px] md:left-[220px] right-[70px] top-0 bottom-0 pointer-events-none select-none z-0";
-        const rowHeight = 52;
+        const rowHeight = 52; 
         const gap = 10;
-        const TOP_LIMIT = 10;
+        const TOP_LIMIT = 10; 
 
         const chartContainer = document.getElementById('chart-container');
         const btnPlay = document.getElementById('btn-play');
@@ -176,12 +136,12 @@
         const textDayCounter = document.getElementById('day-counter');
         const speedButtons = document.querySelectorAll('.speed-btn');
         const yearFiltersContainer = document.getElementById('year-filters');
-
-        let gridLinesContainer = null;
+        
+        let gridLinesContainer = null; 
 
         let isPlaying = false;
-        let currentStep = 0;
-        let speedFactor = 1;
+        let currentStep = 0; 
+        let speedFactor = 1; 
         let lastTimestamp = null;
         let sliderIsActive = false;
 
@@ -197,14 +157,17 @@
         // Текущие данные
         let dates = [];
         let candidates = [];
-
-        // Преаллоцированные массивы для RAF (GC Optimization)
+        
+        // Преаллоцированные массивы для RAF
         let indices = [];
         let ranks = [];
         let currentMedalCounts = [];
 
         let activeMonthlyWinners = [];
-        let lastCompletedCount = 0;
+        let lastCompletedCount = 0; 
+
+        // ИСПРАВЛЕНО: Массив для хранения выбранных пользователем годов
+        let selectedYears = []; 
 
         function getInitials(name) {
             return name.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('');
@@ -213,7 +176,7 @@
         function isMonthEnd(dateStr, nextDateStr) {
             if (!nextDateStr) {
                 const [d, m, y] = dateStr.split('.').map(Number);
-                const lastDay = new Date(y, m, 0).getDate();
+                const lastDay = new Date(y, m, 0).getDate(); 
                 return d === lastDay;
             }
             const currentParts = dateStr.split('.');
@@ -226,10 +189,10 @@
                 const response = await fetch('data.csv');
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const csvText = await response.text();
-
+                
                 parseCSV(csvText);
                 buildYearFilters();
-
+                
                 const currentYear = new Date().getFullYear().toString();
                 if (availableYears.includes(currentYear)) {
                     applyFilter(currentYear);
@@ -246,23 +209,22 @@
 
         function parseCSV(text) {
             if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
-            // Защита от \r в Windows
             const lines = text.trim().replace(/\r/g, '').split('\n').map(l => l.split(','));
             const headers = lines[0];
-
+            
             rawDates = headers.slice(3).map(d => d.trim());
             rawCandidates = [];
-
+            
             const yearsSet = new Set(rawDates.map(d => d.split('.')[2]));
             availableYears = Array.from(yearsSet).sort();
 
             for (let i = 1; i < lines.length; i++) {
                 const cols = lines[i];
                 if (cols.length < 4) continue;
-                rawCandidates.push({
-                    name: cols[0].trim(),
-                    avatar: cols[1].trim(),
-                    dept: cols[2].trim(),
+                rawCandidates.push({ 
+                    name: cols[0].trim(), 
+                    avatar: cols[1].trim(), 
+                    dept: cols[2].trim(), 
                     allValues: cols.slice(3).map(v => parseFloat(v) || 0)
                 });
             }
@@ -270,10 +232,10 @@
 
         function buildYearFilters() {
             yearFiltersContainer.innerHTML = '';
-
+            
             const btnAll = document.createElement('button');
             btnAll.textContent = "За всё время";
-            btnAll.className = "filter-btn px-3 py-1.5 rounded bg-slate-800/80 hover:bg-slate-700 transition shadow";
+            btnAll.className = "filter-btn px-3 py-1.5 rounded bg-slate-800/80 hover:bg-slate-700 transition shadow text-slate-400";
             btnAll.dataset.year = "all";
             btnAll.onclick = () => applyFilter('all');
             yearFiltersContainer.appendChild(btnAll);
@@ -282,7 +244,7 @@
                 availableYears.forEach(year => {
                     const btn = document.createElement('button');
                     btn.textContent = year;
-                    btn.className = "filter-btn px-3 py-1.5 rounded bg-slate-800/80 hover:bg-slate-700 transition";
+                    btn.className = "filter-btn px-3 py-1.5 rounded bg-slate-800/80 hover:bg-slate-700 transition text-slate-400";
                     btn.dataset.year = year;
                     btn.onclick = () => applyFilter(year);
                     yearFiltersContainer.appendChild(btn);
@@ -290,48 +252,100 @@
             }
         }
 
-        function applyFilter(year) {
+        // ИСПРАВЛЕНО: Полностью переписанная функция фильтрации с поддержкой мультивыбора
+        function applyFilter(clickedYear) {
             isPlaying = false;
             updatePlayPauseState();
             currentStep = 0;
-            lastCompletedCount = 0;
+            lastCompletedCount = 0; 
 
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                if (btn.dataset.year === year) {
-                    btn.classList.replace('bg-slate-800/80', 'bg-slate-700');
-                    btn.classList.add('shadow');
+            if (clickedYear === 'all') {
+                selectedYears = []; // Пустой массив означает "За всё время"
+            } else {
+                const index = selectedYears.indexOf(clickedYear);
+                if (index > -1) {
+                    // Если год уже выбран
+                    if (selectedYears.length > 1) {
+                        // Удаляем его из списка выделенных
+                        selectedYears.splice(index, 1);
+                        
+                        // Пересчитываем непрерывный диапазон для оставшихся годов
+                        const numericYears = selectedYears.map(Number);
+                        const min = Math.min(...numericYears);
+                        const max = Math.max(...numericYears);
+                        selectedYears = availableYears.filter(y => {
+                            const numY = Number(y);
+                            return numY >= min && numY <= max;
+                        });
+                    } else {
+                        // Если это был единственный выбранный год — сбрасываем на "За всё время"
+                        selectedYears = [];
+                    }
                 } else {
-                    btn.classList.replace('bg-slate-700', 'bg-slate-800/80');
-                    btn.classList.remove('shadow');
+                    // Добавляем новый год в выборку
+                    selectedYears.push(clickedYear);
+                    
+                    // Гарантируем непрерывность (склеиваем пропущенные года)
+                    const numericYears = selectedYears.map(Number);
+                    const min = Math.min(...numericYears);
+                    const max = Math.max(...numericYears);
+                    selectedYears = availableYears.filter(y => {
+                        const numY = Number(y);
+                        return numY >= min && numY <= max;
+                    });
+                }
+            }
+
+            // Обновляем визуальный стиль кнопок на основе выбранных годов
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            filterButtons.forEach(btn => {
+                const btnYear = btn.dataset.year;
+                if (btnYear === 'all') {
+                    if (selectedYears.length === 0) {
+                        btn.className = "filter-btn px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 transition shadow text-white";
+                    } else {
+                        btn.className = "filter-btn px-3 py-1.5 rounded bg-slate-800/80 hover:bg-slate-700 transition text-slate-400";
+                    }
+                } else {
+                    if (selectedYears.includes(btnYear)) {
+                        btn.className = "filter-btn px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 transition shadow text-white";
+                    } else {
+                        btn.className = "filter-btn px-3 py-1.5 rounded bg-slate-800/80 hover:bg-slate-700 transition text-slate-400";
+                    }
                 }
             });
 
-            if (year === 'all') {
+            // Нарезаем и вычисляем данные
+            if (selectedYears.length === 0) {
                 dates = [...rawDates];
-                candidates = rawCandidates.map(c => ({ ...c, values: [...c.allValues] }));
+                candidates = rawCandidates.map(c => ({...c, values: [...c.allValues]}));
             } else {
-                // Надежный поиск года без ES2023 (findLastIndex)
-                const startIndex = rawDates.findIndex(d => d.split('.')[2] === year);
+                const startYear = selectedYears[0];
+                const endYear = selectedYears[selectedYears.length - 1];
+
+                const startIndex = rawDates.findIndex(d => d.split('.')[2] === startYear);
+                
                 let endIndex = -1;
                 for (let i = rawDates.length - 1; i >= 0; i--) {
-                    if (rawDates[i].split('.')[2] === year) {
+                    if (rawDates[i].split('.')[2] === endYear) {
                         endIndex = i;
                         break;
                     }
                 }
-
+                
                 dates = rawDates.slice(startIndex, endIndex + 1);
                 candidates = rawCandidates.map(c => {
                     const baseline = startIndex > 0 ? c.allValues[startIndex - 1] : 0;
                     return {
-                        ...c,
+                        ...c, 
                         values: c.allValues.slice(startIndex, endIndex + 1).map(v => Math.max(0, v - baseline))
                     };
                 });
             }
 
+            // Предварительный расчет медалей для выбранного диапазона
             activeMonthlyWinners = [];
-            let prevMonthEndIndex = -1;
+            let prevMonthEndIndex = -1; 
 
             for (let i = 0; i < dates.length; i++) {
                 if (isMonthEnd(dates[i], dates[i + 1])) {
@@ -340,24 +354,24 @@
                         const endVal = c.values[i];
                         return { index, val: Math.max(0, endVal - startVal), name: c.name };
                     });
-
+                    
                     standings.sort((a, b) => b.val !== a.val ? b.val - a.val : a.name.localeCompare(b.name));
-
+                    
                     activeMonthlyWinners.push({
-                        index: i,
+                        index: i, 
                         gold: standings[0] && standings[0].val > 0 ? standings[0].index : -1,
                         silver: standings[1] && standings[1].val > 0 ? standings[1].index : -1,
                         bronze: standings[2] && standings[2].val > 0 ? standings[2].index : -1
                     });
-                    prevMonthEndIndex = i;
+                    prevMonthEndIndex = i; 
                 }
             }
 
-            // Инициализация преаллоцированных массивов
+            // Пересоздаем преаллоцированные структуры под новый размер candidates
             indices = new Array(candidates.length);
             ranks = new Array(candidates.length);
             currentMedalCounts = new Array(candidates.length);
-            for (let i = 0; i < candidates.length; i++) currentMedalCounts[i] = { gold: 0, silver: 0, bronze: 0 };
+            for(let i=0; i<candidates.length; i++) currentMedalCounts[i] = {gold: 0, silver: 0, bronze: 0};
 
             initDOM();
             draw();
@@ -373,13 +387,13 @@
             textDateRange.textContent = `Динамика результатов с ${dates[0]} по ${dates[dates.length - 1]}`;
             slider.disabled = false;
             slider.max = dates.length - 1;
-
+            
             candidates.forEach((c, index) => {
                 const initials = getInitials(c.name);
                 const row = document.createElement('div');
                 row.className = `bar-row absolute left-0 right-0 flex items-center z-10`;
                 row.style.height = `${rowHeight}px`;
-                row.style.transform = `translateY(200vh)`; // Надежно прячем за экран
+                row.style.transform = `translateY(200vh)`; 
                 row.style.opacity = '0';
 
                 row.innerHTML = `
@@ -409,24 +423,24 @@
                     rankDisplay: row.querySelector('.rank-display'),
                     valueLabel: row.querySelector('.value-label'),
                     nameLabel: row.querySelector('.name-label'),
-                    medalsContainer: row.querySelector('.medals-container'),
+                    medalsContainer: row.querySelector('.medals-container'), 
                     lastRank: -1,
                     currentValue: 0,
-                    lastMedalsHTML: '' // Кэш состояния медалей
+                    lastMedalsHTML: '' 
                 });
             });
 
             const timelineLabels = document.getElementById('timeline-labels');
             let labelsHTML = '';
             const step = Math.ceil(dates.length / 8);
-            for (let i = 0; i < dates.length; i += step) {
+            for(let i = 0; i < dates.length; i += step) {
                 const percentage = (i / (dates.length - 1)) * 100;
-                if (percentage > 2 && percentage < 98) {
+                if(percentage > 2 && percentage < 98) {
                     labelsHTML += `<span style="left: ${percentage}%; transform: translateX(-50%)" class="absolute text-[10px] text-slate-500 font-mono">${dates[i]}</span>`;
                 }
             }
             labelsHTML += `<span style="left: 0%;" class="absolute text-[10px] text-slate-500 font-mono">${dates[0]}</span>`;
-            labelsHTML += `<span style="left: 100%; transform: translateX(-100%)" class="absolute text-[10px] text-slate-500 font-mono">${dates[dates.length - 1]}</span>`;
+            labelsHTML += `<span style="left: 100%; transform: translateX(-100%)" class="absolute text-[10px] text-slate-500 font-mono">${dates[dates.length-1]}</span>`;
             timelineLabels.innerHTML = labelsHTML;
         }
 
@@ -438,9 +452,8 @@
             let step;
             if (norm < 1.5) step = 1; else if (norm < 3) step = 2; else if (norm < 7) step = 5; else step = 10;
             step *= mag;
-
             const ticks = [];
-            const start = step;
+            const start = step; 
             for (let i = start; i <= maxVal; i += step) ticks.push(i);
             return ticks;
         }
@@ -456,7 +469,7 @@
             gridCache.forEach((el, val) => {
                 const percentage = (val / maxVal) * 100;
                 el.style.left = `${percentage}%`;
-
+                
                 if (isScaleChanged && !activeVals.has(val)) {
                     el.style.opacity = '0';
                 }
@@ -533,7 +546,7 @@
             const els = domCache[candidateIndex];
             if (els && els.medalsContainer) {
                 els.medalsContainer.classList.remove('animate-pop');
-                void els.medalsContainer.offsetWidth;
+                void els.medalsContainer.offsetWidth; 
                 els.medalsContainer.classList.add('animate-pop');
             }
         }
@@ -560,14 +573,14 @@
             let totalSum = 0;
             let maxVal = 1;
 
-            for (let i = 0; i < candidates.length; i++) {
+            for(let i = 0; i < candidates.length; i++) {
                 const val1 = candidates[i].values[idx];
                 const val2 = candidates[i].values[idx2];
                 const curVal = val1 + (val2 - val1) * t;
                 domCache[i].currentValue = curVal;
                 totalSum += curVal;
                 if (curVal > maxVal) maxVal = curVal;
-                indices[i] = i; // Подготовка для сортировки
+                indices[i] = i; 
             }
 
             textWatermarkTotal.textContent = Math.round(totalSum).toLocaleString('ru-RU');
@@ -580,22 +593,20 @@
                 return candidates[a].name.localeCompare(candidates[b].name);
             });
 
-            for (let i = 0; i < indices.length; i++) ranks[indices[i]] = i;
+            for(let i = 0; i < indices.length; i++) ranks[indices[i]] = i;
 
-            // --- ОПТИМИЗАЦИЯ: Расчет медалей только при переходе месяца ---
             let completedMonthsCount = 0;
             for (const item of activeMonthlyWinners) {
                 if (item.index <= idx) completedMonthsCount++;
             }
 
             if (completedMonthsCount !== lastCompletedCount) {
-                // Сброс и пересчет счетчиков
-                for (let i = 0; i < candidates.length; i++) {
+                for(let i=0; i<candidates.length; i++) {
                     currentMedalCounts[i].gold = 0;
                     currentMedalCounts[i].silver = 0;
                     currentMedalCounts[i].bronze = 0;
                 }
-                for (let i = 0; i < completedMonthsCount; i++) {
+                for (let i=0; i<completedMonthsCount; i++) {
                     const m = activeMonthlyWinners[i];
                     if (m.gold !== -1) currentMedalCounts[m.gold].gold++;
                     if (m.silver !== -1) currentMedalCounts[m.silver].silver++;
@@ -613,12 +624,12 @@
                 lastCompletedCount = completedMonthsCount;
             }
 
-            const maxBarWidth = 100;
+            const maxBarWidth = 100; 
 
-            for (let i = 0; i < candidates.length; i++) {
+            for(let i = 0; i < candidates.length; i++) {
                 const rank = ranks[i];
                 const els = domCache[i];
-
+                
                 if (rank < TOP_LIMIT) {
                     els.rowEl.style.transform = `translateY(${rank * (rowHeight + gap)}px)`;
                     els.rowEl.style.opacity = '1';
@@ -632,24 +643,22 @@
 
                 els.valueLabel.textContent = Math.round(val);
                 els.rankDisplay.textContent = rank + 1;
-
+                
                 els.barFill.style.width = `${percentage}%`;
                 els.valueLabel.style.left = `calc(${percentage}% + 10px)`;
                 els.avatarContainer.style.left = `calc(max(0px, ${percentage}% - 40px))`;
 
-                // ОПТИМИЗАЦИЯ: Обновляем DOM медалей только если HTML изменился
                 const count = currentMedalCounts[i];
                 let medalsHTML = '';
                 if (count.gold > 0) medalsHTML += generateSingleMedalHTML('🥇', count.gold, 'Золото', 'text-amber-400');
                 if (count.silver > 0) medalsHTML += generateSingleMedalHTML('🥈', count.silver, 'Серебро', 'text-slate-300');
                 if (count.bronze > 0) medalsHTML += generateSingleMedalHTML('🥉', count.bronze, 'Бронза', 'text-orange-400');
-
+                
                 if (medalsHTML !== els.lastMedalsHTML) {
                     els.medalsContainer.innerHTML = medalsHTML;
                     els.lastMedalsHTML = medalsHTML;
                 }
 
-                // ОПТИМИЗАЦИЯ: Смена классов ранга
                 if (els.lastRank !== rank) {
                     applyRankDesign(els, rank);
                     els.lastRank = rank;
@@ -689,7 +698,7 @@
         }
 
         btnPlay.addEventListener('click', () => {
-            if (currentStep >= dates.length - 1) currentStep = 0;
+            if (currentStep >= dates.length - 1) currentStep = 0; 
             isPlaying = !isPlaying;
             updatePlayPauseState();
             if (isPlaying) requestAnimationFrame(animate);
@@ -698,7 +707,7 @@
         btnReset.addEventListener('click', () => {
             isPlaying = false;
             currentStep = 0;
-            lastCompletedCount = 0;
+            lastCompletedCount = 0; 
             updatePlayPauseState();
             draw();
         });
@@ -710,7 +719,7 @@
             currentStep = parseFloat(slider.value);
             draw();
         });
-
+        
         slider.addEventListener('change', () => sliderIsActive = false);
 
         speedButtons.forEach(button => {
@@ -730,5 +739,4 @@
         loadData();
     </script>
 </body>
-
 </html>
