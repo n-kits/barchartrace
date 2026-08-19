@@ -66,6 +66,30 @@
         .animate-pop {
             animation: medalPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
+
+        /* Тёмный скроллбар для списка участников */
+        #chart-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #334155 #0C1424;
+        }
+
+        #chart-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #chart-scroll::-webkit-scrollbar-track {
+            background: #0C1424;
+            border-radius: 4px;
+        }
+
+        #chart-scroll::-webkit-scrollbar-thumb {
+            background-color: #334155;
+            border-radius: 4px;
+        }
+
+        #chart-scroll::-webkit-scrollbar-thumb:hover {
+            background-color: #475569;
+        }
     </style>
 </head>
 
@@ -88,11 +112,11 @@
         </header>
 
         <!-- Область графика -->
-        <div class="relative bg-[#0C1424] rounded-xl p-4 md:p-6 flex-1 flex flex-col overflow-hidden shadow-2xl">
+        <div id="chart-area" class="relative bg-[#0C1424] rounded-xl p-4 md:p-6 flex-1 flex flex-col overflow-hidden shadow-2xl">
 
             <!-- Водяной знак -->
             <div
-                class="absolute bottom-8 right-12 md:right-16 flex flex-col items-end z-0 select-none pointer-events-none opacity-20 whitespace-nowrap">
+                class="absolute bottom-8 right-[90px] md:right-[106px] flex flex-col items-end z-0 select-none pointer-events-none opacity-20 whitespace-nowrap">
                 <div id="watermark-date"
                     class="text-6xl md:text-8xl font-black text-slate-500 font-mono tracking-tighter leading-none">
                     --.--.----
@@ -102,10 +126,16 @@
                 </div>
             </div>
 
-            <!-- Контейнер для строк рейтинга -->
-            <div id="chart-container" class="relative w-full h-full z-10 mt-2">
+            <!-- Общая область без своего padding — чтобы проценты высоты у обоих слоёв ниже считались одинаково -->
+            <div class="relative w-full flex-1 min-h-0 mt-2">
+                <!-- Линии сетки с подписями значений — фиксированы, не участвуют в скролле -->
                 <div id="grid-lines"
-                    class="absolute left-[160px] md:left-[220px] right-[70px] top-0 bottom-0 pointer-events-none select-none z-0">
+                    class="absolute inset-0 right-[70px] pointer-events-none select-none z-0">
+                </div>
+
+                <!-- Скроллируемый список участников -->
+                <div id="chart-scroll" class="absolute inset-0 z-10 overflow-y-auto overflow-x-hidden">
+                    <div id="chart-container" class="relative w-full"></div>
                 </div>
             </div>
         </div>
@@ -141,6 +171,7 @@
                             <button class="speed-btn px-2 py-1 rounded" data-speed="2.5">2.5x</button>
                             <button class="speed-btn px-2 py-1 rounded" data-speed="5">5x</button>
                             <button class="speed-btn px-2 py-1 rounded" data-speed="10">10x</button>
+                            <button class="speed-btn px-2 py-1 rounded" data-speed="20">20x</button>
                         </div>
                     </div>
                 </div>
@@ -172,10 +203,21 @@
             order: "emoji-first"
         };
 
-        const GRID_CLASSES = "absolute left-[160px] md:left-[220px] right-[70px] top-0 bottom-0 pointer-events-none select-none z-0";
+        // Глобальные переходящие рекорды: эмодзи, цвета и размеры каждого типа можно менять здесь
+        const RECORD_CONFIG = {
+            day: { emoji: "🔥", color: "text-orange-400", bg: "bg-orange-400/10" },
+            month: { emoji: "🌋", color: "text-red-400", bg: "bg-red-400/10" },
+            crown: { emoji: "👑", color: "text-amber-400", bg: "bg-amber-400/10" },
+            emojiSize: "text-[11px]",
+            valueSize: "text-[10.5px]",
+            gapBetween: "gap-0.5",
+            gapInside: "gap-0.5",
+            padding: "px-1 py-0.5"
+        };
+
         const rowHeight = 52;
         const gap = 10;
-        const TOP_LIMIT = 10;
+        // Лимит снят: показываем всех участников списком со скроллом
 
         const chartContainer = document.getElementById('chart-container');
         const btnPlay = document.getElementById('btn-play');
@@ -191,7 +233,8 @@
         const speedButtons = document.querySelectorAll('.speed-btn');
         const yearFiltersContainer = document.getElementById('year-filters');
 
-        let gridLinesContainer = null;
+        const gridLinesContainer = document.getElementById('grid-lines');
+        let lastNameColWidth = 0;
 
         let isPlaying = false;
         let currentStep = 0;
@@ -220,11 +263,30 @@
         let activeMonthlyWinners = [];
         let lastCompletedCount = 0;
 
+        // Глобальные переходящие рекорды (по дням, для O(1) обращения в draw())
+        let dayRecordTimeline = [];   // {value, holders[]} — макс. задач за один день
+        let monthRecordTimeline = []; // {value, holders[]} — макс. задач суммарно за один месяц
+        let crownTimeline = [];       // {value, holders[]} — макс. дней в лидерах
+
         // ИСПРАВЛЕНО: Массив для хранения выбранных пользователем годов
         let selectedYears = [];
 
         function getInitials(name) {
             return name.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('');
+        }
+
+        const MONTH_ABBR = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+
+        // дд.мм.гг — для подписи даты дневного рекорда
+        function formatDayShort(dateStr) {
+            const [d, m, y] = dateStr.split('.');
+            return `${d}.${m}.${y.slice(-2)}`;
+        }
+
+        // ммм'гг — для подписи месяца рекорда (три первых буквы месяца)
+        function formatMonthShort(dateStr) {
+            const [, m, y] = dateStr.split('.');
+            return `${MONTH_ABBR[parseInt(m, 10) - 1]}'${y.slice(-2)}`;
         }
 
         function isMonthEnd(dateStr, nextDateStr) {
@@ -397,28 +459,81 @@
                 });
             }
 
-            // Предварительный расчет медалей для выбранного диапазона
+            // Предварительный расчет медалей и глобальных рекордов для выбранного диапазона
             activeMonthlyWinners = [];
+            dayRecordTimeline = new Array(dates.length);
+            monthRecordTimeline = new Array(dates.length);
+            crownTimeline = new Array(dates.length);
             let prevMonthEndIndex = -1;
 
+            let currentDayRecord = { value: 0, holders: [] };
+            let currentMonthRecord = { value: 0, holders: [] };
+            const crownTally = new Array(candidates.length).fill(0);
+            let currentCrownRecord = { value: 0, holders: [] };
+
+            // Обновляет "бегущий рекорд" по правилу: строго больше — заменяет держателей,
+            // равно текущему максимуму — добавляет держателя (ничья делится), меньше — не влияет.
+            // meta — произвольная подпись держателя (например, дата рекорда), хранится вместе с ним.
+            function updateRunningRecord(record, val, holderIndex, meta) {
+                if (val <= 0) return record;
+                if (val > record.value) return { value: val, holders: [{ index: holderIndex, meta }] };
+                if (val === record.value && !record.holders.some(h => h.index === holderIndex)) {
+                    return { value: val, holders: [...record.holders, { index: holderIndex, meta }] };
+                }
+                return record;
+            }
+
             for (let i = 0; i < dates.length; i++) {
+                // --- Огонёк: рекорд задач за один день ---
+                for (let c = 0; c < candidates.length; c++) {
+                    const prevVal = i > 0 ? candidates[c].values[i - 1] : 0;
+                    const delta = candidates[c].values[i] - prevVal;
+                    currentDayRecord = updateRunningRecord(currentDayRecord, delta, c, formatDayShort(dates[i]));
+                }
+                dayRecordTimeline[i] = currentDayRecord;
+
+                // --- Царь горы: дни, суммарно проведённые на 1-м месте ---
+                let leaderVal = 0, leaders = [];
+                for (let c = 0; c < candidates.length; c++) {
+                    const v = candidates[c].values[i];
+                    if (v > leaderVal) { leaderVal = v; leaders = [c]; }
+                    else if (v === leaderVal && v > 0) { leaders.push(c); }
+                }
+                leaders.forEach(c => crownTally[c]++);
+                for (let c = 0; c < candidates.length; c++) {
+                    currentCrownRecord = updateRunningRecord(currentCrownRecord, crownTally[c], c, null);
+                }
+                crownTimeline[i] = currentCrownRecord;
+
                 if (isMonthEnd(dates[i], dates[i + 1])) {
                     const standings = candidates.map((c, index) => {
                         const startVal = prevMonthEndIndex !== -1 ? c.values[prevMonthEndIndex] : 0;
                         const endVal = c.values[i];
-                        return { index, val: Math.max(0, endVal - startVal), name: c.name };
-                    });
+                        return { index, val: Math.max(0, endVal - startVal) };
+                    }).filter(s => s.val > 0);
 
-                    standings.sort((a, b) => b.val !== a.val ? b.val - a.val : a.name.localeCompare(b.name));
+                    // Уникальные результаты по убыванию — каждому месту соответствует свой результат,
+                    // и медаль получают ВСЕ с этим результатом (ничьи делят место)
+                    const distinctValues = [...new Set(standings.map(s => s.val))].sort((a, b) => b - a);
+
+                    const byValue = (val) => val === undefined ? [] : standings.filter(s => s.val === val).map(s => s.index);
 
                     activeMonthlyWinners.push({
                         index: i,
-                        gold: standings[0] && standings[0].val > 0 ? standings[0].index : -1,
-                        silver: standings[1] && standings[1].val > 0 ? standings[1].index : -1,
-                        bronze: standings[2] && standings[2].val > 0 ? standings[2].index : -1
+                        gold: byValue(distinctValues[0]),
+                        silver: byValue(distinctValues[1]),
+                        bronze: byValue(distinctValues[2])
                     });
+
+                    // --- Вулкан: рекорд суммы задач за один календарный месяц ---
+                    const monthLabel = formatMonthShort(dates[i]);
+                    standings.forEach(s => {
+                        currentMonthRecord = updateRunningRecord(currentMonthRecord, s.val, s.index, monthLabel);
+                    });
+
                     prevMonthEndIndex = i;
                 }
+                monthRecordTimeline[i] = currentMonthRecord;
             }
 
             // Пересоздаем преаллоцированные структуры под новый размер candidates
@@ -432,8 +547,8 @@
         }
 
         function initDOM() {
-            chartContainer.innerHTML = `<div id="grid-lines" class="${GRID_CLASSES}"></div>`;
-            gridLinesContainer = document.getElementById('grid-lines');
+            chartContainer.innerHTML = '';
+            gridLinesContainer.innerHTML = '';
             gridCache.clear();
             domCache = [];
             lastTickKey = '';
@@ -441,6 +556,8 @@
             textDateRange.textContent = `Динамика результатов с ${dates[0]} по ${dates[dates.length - 1]}`;
             slider.disabled = false;
             slider.max = dates.length - 1;
+
+            chartContainer.style.height = `${candidates.length * (rowHeight + gap)}px`;
 
             candidates.forEach((c, index) => {
                 const initials = getInitials(c.name);
@@ -452,8 +569,11 @@
 
                 row.innerHTML = `
                     <div class="rank-display w-6 text-right font-mono font-black pr-2 select-none text-sm md:text-base"></div>
-                    <div class="w-32 md:w-48 flex-shrink-0 flex flex-col justify-center pr-3 select-none">
-                        <div class="name-label font-bold text-xs md:text-sm truncate transition-colors duration-300 text-white">${c.name}</div>
+                    <div class="name-column flex-shrink-0 flex flex-col justify-center pr-3 select-none">
+                        <div class="flex items-center gap-1 min-w-0">
+                            <div class="name-label font-bold text-xs md:text-sm truncate transition-colors duration-300 text-white min-w-0">${c.name}</div>
+                            <div class="records-badges flex items-center ${RECORD_CONFIG.gapBetween} flex-shrink-0 overflow-visible"></div>
+                        </div>
                         <div class="mt-0.5 flex items-center gap-1.5 overflow-visible">
                             <span class="text-[9px] uppercase tracking-wider bg-[#0C1424] px-1.5 py-0.5 rounded text-slate-400 font-semibold border border-slate-700/50">${c.dept}</span>
                             <div class="medals-container flex items-center ${MEDAL_CONFIG.gapBetween} ${MEDAL_CONFIG.emojiSize} overflow-visible hover:scale-110 transition duration-150"></div>
@@ -477,12 +597,20 @@
                     rankDisplay: row.querySelector('.rank-display'),
                     valueLabel: row.querySelector('.value-label'),
                     nameLabel: row.querySelector('.name-label'),
+                    nameColumn: row.querySelector('.name-column'),
                     medalsContainer: row.querySelector('.medals-container'),
+                    recordsBadges: row.querySelector('.records-badges'),
                     lastRank: -1,
                     currentValue: 0,
-                    lastMedalsHTML: ''
+                    lastMedalsHTML: '',
+                    lastRecordsHTML: '',
+                    lastDayRecordValue: null,
+                    lastMonthRecordValue: null
                 });
             });
+
+            lastNameColWidth = 0;
+            updateNameColumnWidth();
 
             const timelineLabels = document.getElementById('timeline-labels');
             let labelsHTML = '';
@@ -495,6 +623,7 @@
             }
             labelsHTML += `<span style="left: 0%;" class="absolute text-[10px] text-slate-500 font-mono">${dates[0]}</span>`;
             labelsHTML += `<span style="left: 100%; transform: translateX(-100%)" class="absolute text-[10px] text-slate-500 font-mono">${dates[dates.length - 1]}</span>`;
+
             timelineLabels.innerHTML = labelsHTML;
         }
 
@@ -561,6 +690,39 @@
             });
         }
 
+        // Динамически подгоняет ширину колонки "имя + бейджи" под самый широкий
+        // на данный момент ряд (имя + медали/рекорды), сдвигая левый край всех столбов и сетки,
+        // чтобы фамилии не обрезались.
+        // Важно: box-sizing: border-box — значит style.width должен включать padding колонки,
+        // иначе реального места под текст будет на namePadding меньше, чем нужно.
+        function updateNameColumnWidth() {
+            const namePadding = 12; // pr-3 у name-column (входит в border-box ширину)
+
+            let maxContentNeeded = 0;
+            for (let i = 0; i < domCache.length; i++) {
+                const els = domCache[i];
+                const badgesWidth = els.recordsBadges.children.length > 0 ? els.recordsBadges.offsetWidth + 4 : 0;
+                const needed = els.nameLabel.scrollWidth + badgesWidth;
+                if (needed > maxContentNeeded) maxContentNeeded = needed;
+            }
+
+            const isMd = window.innerWidth >= 768;
+            const minContent = (isMd ? 192 : 128) - namePadding;
+            const maxContent = (isMd ? 300 : 210) - namePadding;
+            const targetContent = Math.round(Math.max(minContent, Math.min(maxContent, maxContentNeeded)));
+            const targetBoxWidth = targetContent + namePadding;
+
+            if (targetBoxWidth === lastNameColWidth) return;
+            lastNameColWidth = targetBoxWidth;
+
+            for (let i = 0; i < domCache.length; i++) {
+                domCache[i].nameColumn.style.width = `${targetBoxWidth}px`;
+            }
+
+            const rankColumnWidth = 24; // rank-display (w-6, border-box — pr-2 уже внутри)
+            gridLinesContainer.style.left = `${rankColumnWidth + targetBoxWidth}px`;
+        }
+
         function applyRankDesign(els, rank) {
             els.barFill.className = "bar-fill absolute left-0 top-0 bottom-0 rounded-l transition-colors duration-300";
             els.avatarContainer.className = "avatar-container absolute w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center border-2 overflow-hidden z-20 transition-colors duration-300";
@@ -605,12 +767,34 @@
             }
         }
 
+        // Тач-эффект для глобальных рекордов: срабатывает, когда тот же человек побивает свой же рекорд
+        // (не используется для короны — там держатель "обновляет" рекорд буквально каждый день)
+        function triggerRecordPop(candidateIndex) {
+            const els = domCache[candidateIndex];
+            if (els && els.recordsBadges) {
+                els.recordsBadges.classList.remove('animate-pop');
+                void els.recordsBadges.offsetWidth;
+                els.recordsBadges.classList.add('animate-pop');
+            }
+        }
+
         function generateSingleMedalHTML(medalEmoji, value, title, colorClass) {
             const formattedValue = MEDAL_CONFIG.useXFormat ? `x${value}` : value;
             const emojiSpan = `<span>${medalEmoji}</span>`;
             const digitSpan = `<span class="${MEDAL_CONFIG.digitSize} ${colorClass} font-mono">${formattedValue}</span>`;
             const content = MEDAL_CONFIG.order === "emoji-first" ? emojiSpan + digitSpan : digitSpan + emojiSpan;
             return `<span class="flex items-center ${MEDAL_CONFIG.gapInside}" title="${title}">${content}</span>`;
+        }
+
+        // type: 'day' | 'month' | 'crown' — берёт эмодзи/цвет из RECORD_CONFIG[type]
+        function generateRecordBadgeHTML(type, value, dateLabel) {
+            const cfg = RECORD_CONFIG[type];
+            const dateSuffix = dateLabel ? ` (${dateLabel})` : '';
+            let titleText;
+            if (type === 'day') titleText = `Абсолютный рекорд дня: ${value} за один день${dateSuffix}`;
+            else if (type === 'month') titleText = `Абсолютный рекорд месяца: ${value} за один месяц${dateSuffix}`;
+            else titleText = `Дольше всех в лидерах: ${value} дн.`;
+            return `<span class="inline-flex items-center ${RECORD_CONFIG.gapInside} ${RECORD_CONFIG.emojiSize} leading-none ${cfg.bg} ${cfg.color} ${RECORD_CONFIG.padding} rounded font-mono font-bold" title="${titleText}"><span>${cfg.emoji}</span><span class="${RECORD_CONFIG.valueSize}">${value}</span></span>`;
         }
 
         function draw() {
@@ -662,35 +846,34 @@
                 }
                 for (let i = 0; i < completedMonthsCount; i++) {
                     const m = activeMonthlyWinners[i];
-                    if (m.gold !== -1) currentMedalCounts[m.gold].gold++;
-                    if (m.silver !== -1) currentMedalCounts[m.silver].silver++;
-                    if (m.bronze !== -1) currentMedalCounts[m.bronze].bronze++;
+                    m.gold.forEach(idx => currentMedalCounts[idx].gold++);
+                    m.silver.forEach(idx => currentMedalCounts[idx].silver++);
+                    m.bronze.forEach(idx => currentMedalCounts[idx].bronze++);
                 }
 
                 if (isPlaying && completedMonthsCount > lastCompletedCount) {
                     const latestMonth = activeMonthlyWinners[completedMonthsCount - 1];
                     if (latestMonth) {
-                        triggerMedalPop(latestMonth.gold);
-                        triggerMedalPop(latestMonth.silver);
-                        triggerMedalPop(latestMonth.bronze);
+                        latestMonth.gold.forEach(triggerMedalPop);
+                        latestMonth.silver.forEach(triggerMedalPop);
+                        latestMonth.bronze.forEach(triggerMedalPop);
                     }
                 }
                 lastCompletedCount = completedMonthsCount;
             }
 
             const maxBarWidth = 100;
+            const dayRecord = dayRecordTimeline[idx];
+            const monthRecord = monthRecordTimeline[idx];
+            const crownRecord = crownTimeline[idx];
+            let badgesChanged = false;
 
             for (let i = 0; i < candidates.length; i++) {
                 const rank = ranks[i];
                 const els = domCache[i];
 
-                if (rank < TOP_LIMIT) {
-                    els.rowEl.style.transform = `translateY(${rank * (rowHeight + gap)}px)`;
-                    els.rowEl.style.opacity = '1';
-                } else {
-                    els.rowEl.style.transform = `translateY(200vh)`;
-                    els.rowEl.style.opacity = '0';
-                }
+                els.rowEl.style.transform = `translateY(${rank * (rowHeight + gap)}px)`;
+                els.rowEl.style.opacity = '1';
 
                 const val = els.currentValue;
                 const percentage = (val / maxVal) * maxBarWidth;
@@ -711,6 +894,34 @@
                 if (medalsHTML !== els.lastMedalsHTML) {
                     els.medalsContainer.innerHTML = medalsHTML;
                     els.lastMedalsHTML = medalsHTML;
+                    badgesChanged = true;
+                }
+
+                let recordsHTML = '';
+                let selfBeatOwnRecord = false;
+
+                const dayHolder = dayRecord.holders.find(h => h.index === i);
+                if (dayHolder) {
+                    recordsHTML += generateRecordBadgeHTML('day', dayRecord.value, dayHolder.meta);
+                    if (els.lastDayRecordValue !== null && dayRecord.value > els.lastDayRecordValue) selfBeatOwnRecord = true;
+                }
+                els.lastDayRecordValue = dayHolder ? dayRecord.value : null;
+
+                const monthHolder = monthRecord.holders.find(h => h.index === i);
+                if (monthHolder) {
+                    recordsHTML += generateRecordBadgeHTML('month', monthRecord.value, monthHolder.meta);
+                    if (els.lastMonthRecordValue !== null && monthRecord.value > els.lastMonthRecordValue) selfBeatOwnRecord = true;
+                }
+                els.lastMonthRecordValue = monthHolder ? monthRecord.value : null;
+
+                if (isPlaying && selfBeatOwnRecord) triggerRecordPop(i);
+
+                const crownHolder = crownRecord.holders.find(h => h.index === i);
+                if (crownHolder) recordsHTML += generateRecordBadgeHTML('crown', crownRecord.value, null);
+                if (recordsHTML !== els.lastRecordsHTML) {
+                    els.recordsBadges.innerHTML = recordsHTML;
+                    els.lastRecordsHTML = recordsHTML;
+                    badgesChanged = true;
                 }
 
                 if (els.lastRank !== rank) {
@@ -718,6 +929,8 @@
                     els.lastRank = rank;
                 }
             }
+
+            if (badgesChanged) updateNameColumnWidth();
 
             if (!sliderIsActive) slider.value = step;
         }
@@ -788,6 +1001,10 @@
             if (e.code === 'Space') { e.preventDefault(); btnPlay.click(); }
             if (e.code === 'ArrowLeft') { currentStep = Math.max(0, currentStep - 1); slider.value = currentStep; draw(); }
             if (e.code === 'ArrowRight') { currentStep = Math.min(dates.length - 1, currentStep + 1); slider.value = currentStep; draw(); }
+        });
+
+        window.addEventListener('resize', () => {
+            if (domCache.length) { lastNameColWidth = 0; updateNameColumnWidth(); }
         });
 
         loadData();
